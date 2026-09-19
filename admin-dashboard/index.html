@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>لوحة إدارة — منصة التميز التعليمية</title>
+<style>
+  :root { --primary:#1e3a5f; --accent:#2b6cb0; --bg:#f4f6f9; --card:#fff; --danger:#c0392b; --ok:#27824b; --border:#dde3ea; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Tahoma, Arial, sans-serif; margin:0; background:var(--bg); color:#1b2733; }
+  #login-screen { display:flex; align-items:center; justify-content:center; height:100vh; }
+  .login-box { background:var(--card); padding:32px; border-radius:12px; width:320px; box-shadow:0 4px 20px rgba(0,0,0,.08); }
+  .login-box h1 { font-size:18px; margin-top:0; color:var(--primary); }
+  input, select, textarea { width:100%; padding:9px; margin:6px 0 14px; border:1px solid var(--border); border-radius:6px; font-size:14px; }
+  button { cursor:pointer; border:none; border-radius:6px; padding:8px 14px; font-size:14px; background:var(--accent); color:#fff; }
+  button.secondary { background:#eef1f5; color:#333; }
+  button.danger { background:var(--danger); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  #app { display:none; grid-template-columns:220px 1fr; height:100vh; }
+  nav { background:var(--primary); color:#fff; padding:16px 0; overflow-y:auto; }
+  nav h2 { font-size:15px; padding:0 16px; opacity:.8; }
+  nav a { display:block; padding:10px 16px; color:#dce6f2; text-decoration:none; font-size:14px; cursor:pointer; }
+  nav a:hover, nav a.active { background:rgba(255,255,255,.12); color:#fff; }
+  main { padding:24px; overflow-y:auto; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:18px; margin-bottom:18px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:right; padding:8px; border-bottom:1px solid var(--border); }
+  th { background:#f0f3f7; }
+  .badge { padding:2px 8px; border-radius:10px; font-size:11px; }
+  .badge.NEEDS_REVIEW { background:#fff3cd; color:#856404; }
+  .badge.APPROVED { background:#d4edda; color:var(--ok); }
+  .badge.REJECTED { background:#f8d7da; color:var(--danger); }
+  .badge.DUPLICATE { background:#e2d9f3; color:#5a3d8a; }
+  .badge.NEEDS_CLASSIFICATION { background:#d6e9f8; color:#2b6cb0; }
+  .toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  .toast { position:fixed; bottom:20px; left:20px; background:#222; color:#fff; padding:10px 16px; border-radius:6px; font-size:13px; display:none; z-index:50; }
+  .muted { color:#8b97a6; font-size:12px; }
+  .hidden { display:none !important; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .stat { text-align:center; }
+  .stat b { display:block; font-size:26px; color:var(--primary); }
+</style>
+</head>
+<body>
+
+<!-- ============ Login ============ -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>منصة التميز التعليمية — لوحة الإدارة</h1>
+    <label>عنوان السيرفر (Backend URL)</label>
+    <input id="api-base" value="http://localhost:8000" />
+    <label>اسم المستخدم</label>
+    <input id="login-username" />
+    <label>كلمة المرور</label>
+    <input id="login-password" type="password" />
+    <button onclick="doLogin()" style="width:100%">تسجيل الدخول</button>
+    <p id="login-error" class="muted" style="color:var(--danger)"></p>
+  </div>
+</div>
+
+<!-- ============ App Shell ============ -->
+<div id="app">
+  <nav>
+    <h2>القائمة</h2>
+    <a data-tab="overview" onclick="showTab('overview')">نظرة عامة</a>
+    <a data-tab="content" onclick="showTab('content')">المراحل/المواد/الوحدات/الدروس</a>
+    <a data-tab="questions" onclick="showTab('questions')">بنك الأسئلة</a>
+    <a data-tab="review" onclick="showTab('review')">مراجعة الأسئلة</a>
+    <a data-tab="import" onclick="showTab('import')">مركز الاستيراد</a>
+    <a data-tab="import-history" onclick="showTab('import-history')">سجل الاستيراد</a>
+    <a data-tab="exams" onclick="showTab('exams')">الامتحانات</a>
+    <a data-tab="results" onclick="showTab('results')">النتائج والتقارير</a>
+    <a data-tab="users" onclick="showTab('users')">المستخدمون والصلاحيات</a>
+    <a data-tab="audit" onclick="showTab('audit')">سجل التدقيق</a>
+    <a data-tab="search" onclick="showTab('search')">البحث الذكي</a>
+    <a onclick="logout()" style="margin-top:20px;border-top:1px solid rgba(255,255,255,.15);padding-top:14px">تسجيل الخروج</a>
+  </nav>
+  <main>
+
+    <!-- Overview -->
+    <section id="tab-overview" class="tab">
+      <h2>نظرة عامة</h2>
+      <div class="grid-2">
+        <div class="card stat"><b id="ov-review-count">—</b>أسئلة بانتظار المراجعة</div>
+        <div class="card stat"><b id="ov-role">—</b>دورك الحالي</div>
+      </div>
+      <div class="card">
+        <p class="muted">هذه اللوحة تستدعي الـFastAPI Backend مباشرة بنفس الـendpoints المُختبرة في الكود
+        (routers/*.py). لا بيانات وهمية هنا — أي فشل في الاتصال يظهر كرسالة خطأ صريحة أسفل كل قسم.</p>
+      </div>
+    </section>
+
+    <!-- Content management -->
+    <section id="tab-content" class="tab hidden">
+      <h2>الهيكل التعليمي</h2>
+      <div class="toolbar">
+        <select id="content-grade-select" onchange="loadSubjects()"></select>
+        <select id="content-subject-select" onchange="loadUnits()"></select>
+        <select id="content-unit-select" onchange="loadLessons()"></select>
+        <button class="secondary" onclick="loadGrades()">تحديث</button>
+      </div>
+      <div class="grid-2">
+        <div class="card"><h3>الوحدات</h3><div id="units-list"></div></div>
+        <div class="card"><h3>الدروس</h3><div id="lessons-list"></div></div>
+      </div>
+      <p id="content-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Questions -->
+    <section id="tab-questions" class="tab hidden">
+      <h2>بنك الأسئلة</h2>
+      <div class="toolbar">
+        <input id="q-filter-lesson" placeholder="lesson_id (اختياري)" style="width:140px;margin:0" />
+        <select id="q-filter-status" style="margin:0">
+          <option value="">كل الحالات</option>
+          <option>NEEDS_REVIEW</option><option>APPROVED</option><option>REJECTED</option>
+          <option>DUPLICATE</option><option>NEEDS_CLASSIFICATION</option>
+        </select>
+        <button onclick="loadQuestions()">فلترة</button>
+      </div>
+      <div id="questions-table"></div>
+      <p id="questions-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Review Center -->
+    <section id="tab-review" class="tab hidden">
+      <h2>الأسئلة قيد المراجعة</h2>
+      <div class="toolbar">
+        <button onclick="bulkAction('approve')">اعتماد المحدد</button>
+        <button class="danger" onclick="bulkAction('reject')">رفض المحدد</button>
+        <button class="danger" onclick="bulkAction('delete')">حذف المحدد</button>
+        <span class="muted" id="review-selected-count">0 محدد</span>
+      </div>
+      <div id="review-table"></div>
+      <p id="review-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Import Center -->
+    <section id="tab-import" class="tab hidden">
+      <h2>مركز الاستيراد الذكي</h2>
+      <div class="card">
+        <h3>لصق مجموعة أسئلة (استخراج من مصدر — لا توليد AI هنا)</h3>
+        <textarea id="import-bulk-text" rows="8" placeholder="1- سؤال...&#10;الإجابة: ...."></textarea>
+        <button onclick="importBulkText()">استيراد</button>
+        <div id="import-result" class="muted"></div>
+      </div>
+      <div class="card">
+        <h3>توليد أسئلة بالذكاء الاصطناعي (مسار منفصل — تدخل قائمة المراجعة دائمًا)</h3>
+        <input id="ai-lesson-id" placeholder="lesson_id" />
+        <input id="ai-lesson-name" placeholder="اسم الدرس" />
+        <input id="ai-count" type="number" value="5" placeholder="عدد الأسئلة" />
+        <select id="ai-type"><option>MCQ</option><option>TRUE_FALSE</option><option>WHO_IS</option><option>WHY</option></select>
+        <button onclick="generateAI()">توليد</button>
+        <div id="ai-result" class="muted"></div>
+      </div>
+      <p id="import-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Import History -->
+    <section id="tab-import-history" class="tab hidden">
+      <h2>سجل عمليات الاستيراد</h2>
+      <div id="import-history-table"></div>
+      <p id="import-history-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Exams -->
+    <section id="tab-exams" class="tab hidden">
+      <h2>الامتحانات</h2>
+      <div class="card">
+        <h3>إنشاء امتحان</h3>
+        <input id="exam-name" placeholder="اسم الامتحان" />
+        <input id="exam-question-ids" placeholder="أرقام الأسئلة مفصولة بفاصلة، مثال: 12,15,20" />
+        <input id="exam-duration" type="number" placeholder="مدة الامتحان (دقائق)" />
+        <label><input type="checkbox" id="exam-shuffle" style="width:auto"/> ترتيب عشوائي للأسئلة</label>
+        <label><input type="checkbox" id="exam-retake" style="width:auto"/> السماح بإعادة المحاولة</label>
+        <button onclick="createExam()">إنشاء</button>
+        <div id="exam-create-result" class="muted"></div>
+      </div>
+      <p id="exams-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Results -->
+    <section id="tab-results" class="tab hidden">
+      <h2>النتائج والتقارير</h2>
+      <div class="toolbar">
+        <input id="report-exam-id" placeholder="exam_id" style="width:120px;margin:0" />
+        <button onclick="loadExamReport()">تقرير الامتحان</button>
+      </div>
+      <div id="exam-report-box" class="card hidden"></div>
+      <p id="results-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Users -->
+    <section id="tab-users" class="tab hidden">
+      <h2>المستخدمون والصلاحيات</h2>
+      <div class="card">
+        <h3>إضافة مستخدم</h3>
+        <input id="new-user-username" placeholder="اسم المستخدم" />
+        <input id="new-user-password" type="password" placeholder="كلمة المرور" />
+        <select id="new-user-role">
+          <option>STUDENT</option><option>REVIEWER</option><option>TEACHER</option>
+          <option>ADMIN</option><option>SUPER_ADMIN</option>
+        </select>
+        <button onclick="createUser()">إنشاء</button>
+      </div>
+      <div id="users-table"></div>
+      <p id="users-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Audit -->
+    <section id="tab-audit" class="tab hidden">
+      <h2>سجل التدقيق (Audit Logs)</h2>
+      <div class="toolbar">
+        <input id="audit-filter-action" placeholder="action (مثال: APPROVE)" style="width:180px;margin:0" />
+        <input id="audit-filter-entity" placeholder="entity (مثال: question)" style="width:160px;margin:0" />
+        <button onclick="loadAuditLogs()">بحث</button>
+      </div>
+      <div id="audit-table"></div>
+      <p id="audit-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+    <!-- Search -->
+    <section id="tab-search" class="tab hidden">
+      <h2>البحث الذكي</h2>
+      <div class="toolbar">
+        <input id="search-query" placeholder="ابحث في الأسئلة (مثال: أسباب قيام الحضارات القديمة)" style="flex:1;margin:0" />
+        <button onclick="runSearch()">بحث</button>
+      </div>
+      <div id="search-results"></div>
+      <p id="search-error" class="muted" style="color:var(--danger)"></p>
+    </section>
+
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================
+// طبقة استدعاء الـAPI — تستخدم fetch الحقيقي، JWT من localStorage فقط.
+// لا يوجد أي مفتاح AI أو سر آخر هنا؛ التوكن هو الوحيد المخزَّن، ونفس القاعدة
+// المطبّقة في تطبيق Android (JWT فقط، لا أسرار أخرى في العميل).
+// ============================================================
+let API_BASE = localStorage.getItem('api_base') || 'http://localhost:8000';
+let TOKEN = localStorage.getItem('jwt_token') || null;
+let ROLE = localStorage.getItem('user_role') || null;
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+async function api(path, options = {}) {
+  const res = await fetch(API_BASE + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(`(${res.status}) ${detail}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function setError(elId, err) { document.getElementById(elId).textContent = err ? ('خطأ: ' + err.message) : ''; }
+
+// ---------------- Auth ----------------
+async function doLogin() {
+  API_BASE = document.getElementById('api-base').value.replace(/\/$/, '');
+  const username = document.getElementById('login-username').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    TOKEN = data.access_token; ROLE = data.role;
+    localStorage.setItem('api_base', API_BASE);
+    localStorage.setItem('jwt_token', TOKEN);
+    localStorage.setItem('user_role', ROLE);
+    enterApp();
+  } catch (e) {
+    document.getElementById('login-error').textContent = 'فشل تسجيل الدخول: ' + e.message;
+  }
+}
+
+function logout() {
+  localStorage.removeItem('jwt_token'); localStorage.removeItem('user_role');
+  TOKEN = null; ROLE = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'grid';
+  document.getElementById('ov-role').textContent = ROLE || '—';
+  showTab('overview');
+  loadGrades();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  document.querySelectorAll('nav a[data-tab]').forEach(a => a.classList.toggle('active', a.dataset.tab === name));
+  const loaders = {
+    questions: loadQuestions, review: loadReviewQueue, 'import-history': loadImportHistory,
+    users: loadUsers, audit: loadAuditLogs, overview: loadOverview,
+  };
+  if (loaders[name]) loaders[name]();
+}
+
+// ---------------- Overview ----------------
+async function loadOverview() {
+  try {
+    const queue = await api('/review/queue');
+    document.getElementById('ov-review-count').textContent = queue.length;
+  } catch (e) { /* يظهر الخطأ في أقسامها المخصصة، لا نكرر هنا */ }
+}
+
+// ---------------- Content ----------------
+async function loadGrades() {
+  try {
+    const grades = await api('/content/grades');
+    fillSelect('content-grade-select', grades, 'اختر صفًا');
+    if (grades.length) loadSubjects();
+  } catch (e) { setError('content-error', e); }
+}
+async function loadSubjects() {
+  const gradeId = document.getElementById('content-grade-select').value;
+  try {
+    const subjects = await api('/content/subjects?grade_id=' + gradeId);
+    fillSelect('content-subject-select', subjects, 'اختر مادة');
+    if (subjects.length) loadUnits();
+  } catch (e) { setError('content-error', e); }
+}
+async function loadUnits() {
+  const subjectId = document.getElementById('content-subject-select').value;
+  try {
+    const units = await api('/content/units?subject_id=' + subjectId);
+    fillSelect('content-unit-select', units, 'اختر وحدة');
+    document.getElementById('units-list').innerHTML = renderList(units);
+    if (units.length) loadLessons();
+  } catch (e) { setError('content-error', e); }
+}
+async function loadLessons() {
+  const unitId = document.getElementById('content-unit-select').value;
+  try {
+    const lessons = await api('/content/lessons?unit_id=' + unitId);
+    document.getElementById('lessons-list').innerHTML = renderList(lessons);
+  } catch (e) { setError('content-error', e); }
+}
+function fillSelect(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">${placeholder}</option>` + items.map(i => `<option value="${i.id}">${i.name}</option>`).join('');
+}
+function renderList(items) {
+  if (!items.length) return '<p class="muted">لا توجد عناصر.</p>';
+  return '<ul>' + items.map(i => `<li>${i.name} <span class="muted">#${i.id}</span></li>`).join('') + '</ul>';
+}
+
+// ---------------- Questions ----------------
+async function loadQuestions() {
+  const lesson = document.getElementById('q-filter-lesson').value;
+  const status = document.getElementById('q-filter-status').value;
+  const params = new URLSearchParams();
+  if (lesson) params.set('lesson_id', lesson);
+  if (status) params.set('status', status);
+  try {
+    const rows = await api('/questions?' + params.toString());
+    document.getElementById('questions-table').innerHTML = renderQuestionsTable(rows, false);
+    setError('questions-error', null);
+  } catch (e) { setError('questions-error', e); }
+}
+function renderQuestionsTable(rows, selectable) {
+  if (!rows.length) return '<p class="muted">لا توجد أسئلة مطابقة.</p>';
+  return `<table><thead><tr>${selectable ? '<th></th>' : ''}<th>#</th><th>السؤال</th><th>النوع</th><th>الحالة</th>${selectable ? '<th>إجراء</th>' : ''}</tr></thead><tbody>` +
+    rows.map(q => `<tr>
+      ${selectable ? `<td><input type="checkbox" class="review-check" value="${q.question_id}" onchange="updateSelectedCount()"></td>` : ''}
+      <td>${selectable ? q.question_id : q.id}</td>
+      <td>${escapeHtml(q.question)}</td>
+      <td>${q.canonical_type || q.original_question_type || '—'}</td>
+      <td><span class="badge ${q.status}">${q.status}</span>${q.duplicate_of_question_id ? ` <span class="muted">(تشابه مع #${q.duplicate_of_question_id})</span>` : ''}</td>
+      ${selectable ? `<td><button onclick="singleAction(${q.question_id}, 'approve')">اعتماد</button> <button class="danger" onclick="singleAction(${q.question_id}, 'reject')">رفض</button></td>` : ''}
+    </tr>`).join('') + '</tbody></table>';
+}
+function escapeHtml(s) { return (s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---------------- Review Center ----------------
+async function loadReviewQueue() {
+  try {
+    const rows = await api('/review/queue');
+    document.getElementById('review-table').innerHTML = renderQuestionsTable(rows, true);
+    updateSelectedCount();
+    setError('review-error', null);
+  } catch (e) { setError('review-error', e); }
+}
+function updateSelectedCount() {
+  const n = document.querySelectorAll('.review-check:checked').length;
+  document.getElementById('review-selected-count').textContent = n + ' محدد';
+}
+async function singleAction(id, action) {
+  try { await api(`/questions/${id}/${action}`, { method: 'POST' }); toast('تم.'); loadReviewQueue(); }
+  catch (e) { setError('review-error', e); }
+}
+async function bulkAction(action) {
+  const ids = [...document.querySelectorAll('.review-check:checked')].map(c => Number(c.value));
+  if (!ids.length) { toast('لم يتم تحديد أي سؤال.'); return; }
+  if (!confirm(`تأكيد ${action} لعدد ${ids.length} سؤال؟`)) return;
+  try {
+    const result = await api(`/questions/bulk/${action}`, { method: 'POST', body: JSON.stringify({ question_ids: ids }) });
+    toast(`نجح: ${result.succeeded.length} — فشل: ${Object.keys(result.failed).length}`);
+    loadReviewQueue();
+  } catch (e) { setError('review-error', e); }
+}
+
+// ---------------- Import Center ----------------
+async function importBulkText() {
+  const text = document.getElementById('import-bulk-text').value;
+  try {
+    const batch = await api('/import/bulk-text', { method: 'POST', body: JSON.stringify({ text, lesson_id: 0 }) });
+    document.getElementById('import-result').textContent =
+      `الدفعة ${batch.batch_number}: إجمالي ${batch.total_questions}, مراجعة ${batch.needs_review_count}, تكرار ${batch.duplicate_count}`;
+    setError('import-error', null);
+  } catch (e) { setError('import-error', e); }
+}
+async function generateAI() {
+  const payload = {
+    lesson_id: Number(document.getElementById('ai-lesson-id').value),
+    lesson_name: document.getElementById('ai-lesson-name').value,
+    count: Number(document.getElementById('ai-count').value),
+    question_type: document.getElementById('ai-type').value,
+  };
+  try {
+    const rows = await api('/ai/generate-questions', { method: 'POST', body: JSON.stringify(payload) });
+    document.getElementById('ai-result').textContent = `تم توليد ${rows.length} سؤال — كلها بحالة NEEDS_REVIEW (لا اعتماد تلقائي).`;
+    setError('import-error', null);
+  } catch (e) { setError('import-error', e); }
+}
+
+// ---------------- Import History ----------------
+async function loadImportHistory() {
+  try {
+    const rows = await api('/import/batches');
+    document.getElementById('import-history-table').innerHTML = rows.length
+      ? '<table><thead><tr><th>الدفعة</th><th>الحالة</th><th>الإجمالي</th><th>مراجعة</th><th>تكرار</th></tr></thead><tbody>' +
+        rows.map(b => `<tr><td>${b.batch_number}</td><td>${b.status}</td><td>${b.total_questions}</td><td>${b.needs_review_count}</td><td>${b.duplicate_count}</td></tr>`).join('') + '</tbody></table>'
+      : '<p class="muted">لا يوجد سجل استيراد بعد.</p>';
+    setError('import-history-error', null);
+  } catch (e) { setError('import-history-error', e); }
+}
+
+// ---------------- Exams ----------------
+async function createExam() {
+  const payload = {
+    name: document.getElementById('exam-name').value,
+    question_ids: document.getElementById('exam-question-ids').value.split(',').map(s => Number(s.trim())).filter(Boolean),
+    duration_minutes: Number(document.getElementById('exam-duration').value) || null,
+    shuffle_questions: document.getElementById('exam-shuffle').checked,
+    allow_retake: document.getElementById('exam-retake').checked,
+  };
+  try {
+    const exam = await api('/exams', { method: 'POST', body: JSON.stringify(payload) });
+    document.getElementById('exam-create-result').textContent = `تم إنشاء الامتحان #${exam.id}: ${exam.name}`;
+    setError('exams-error', null);
+  } catch (e) { setError('exams-error', e); }
+}
+
+// ---------------- Results ----------------
+async function loadExamReport() {
+  const examId = document.getElementById('report-exam-id').value;
+  try {
+    const r = await api(`/results/exams/${examId}/report`);
+    const box = document.getElementById('exam-report-box');
+    box.classList.remove('hidden');
+    box.innerHTML = `<h3>تقرير الامتحان #${r.exam_id}</h3>
+      <p>عدد المحاولات: ${r.attempts_count}</p>
+      <p>المتوسط: ${r.average_percentage}%</p>
+      <p>نسبة النجاح: ${r.pass_rate}%</p>
+      <p>أعلى درجة: ${r.highest_percentage}% — أقل درجة: ${r.lowest_percentage}%</p>`;
+    setError('results-error', null);
+  } catch (e) { setError('results-error', e); }
+}
+
+// ---------------- Users ----------------
+async function loadUsers() {
+  try {
+    const rows = await api('/users');
+    document.getElementById('users-table').innerHTML = rows.length
+      ? '<table><thead><tr><th>#</th><th>اسم المستخدم</th><th>الدور</th><th>نشط</th><th>إجراء</th></tr></thead><tbody>' +
+        rows.map(u => `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.role}</td><td>${u.is_active ? 'نعم' : 'لا'}</td>
+          <td>${u.is_active
+            ? `<button class="danger" onclick="toggleUser(${u.id}, 'deactivate')">تعطيل</button>`
+            : `<button onclick="toggleUser(${u.id}, 'reactivate')">تفعيل</button>`}</td></tr>`).join('') + '</tbody></table>'
+      : '<p class="muted">لا يوجد مستخدمون.</p>';
+    setError('users-error', null);
+  } catch (e) { setError('users-error', e); }
+}
+async function createUser() {
+  const payload = {
+    username: document.getElementById('new-user-username').value,
+    password: document.getElementById('new-user-password').value,
+    role: document.getElementById('new-user-role').value,
+  };
+  try { await api('/users', { method: 'POST', body: JSON.stringify(payload) }); toast('تم إنشاء المستخدم.'); loadUsers(); }
+  catch (e) { setError('users-error', e); }
+}
+async function toggleUser(id, action) {
+  try { await api(`/users/${id}/${action}`, { method: 'POST' }); loadUsers(); }
+  catch (e) { setError('users-error', e); }
+}
+
+// ---------------- Audit ----------------
+async function loadAuditLogs() {
+  const params = new URLSearchParams();
+  const action = document.getElementById('audit-filter-action').value;
+  const entity = document.getElementById('audit-filter-entity').value;
+  if (action) params.set('action', action);
+  if (entity) params.set('entity', entity);
+  try {
+    const rows = await api('/audit?' + params.toString());
+    document.getElementById('audit-table').innerHTML = rows.length
+      ? '<table><thead><tr><th>الوقت</th><th>المستخدم</th><th>العملية</th><th>الكيان</th><th>معرّف الكيان</th></tr></thead><tbody>' +
+        rows.map(a => `<tr><td>${new Date(a.created_at).toLocaleString('ar-EG')}</td><td>${a.user_id ?? '—'}</td><td>${a.action}</td><td>${a.entity}</td><td>${a.entity_id ?? '—'}</td></tr>`).join('') + '</tbody></table>'
+      : '<p class="muted">لا توجد سجلات مطابقة.</p>';
+    setError('audit-error', null);
+  } catch (e) { setError('audit-error', e); }
+}
+
+// ---------------- Search ----------------
+async function runSearch() {
+  const q = document.getElementById('search-query').value;
+  try {
+    const rows = await api('/questions/search/?q=' + encodeURIComponent(q));
+    document.getElementById('search-results').innerHTML = renderQuestionsTable(rows, false);
+    setError('search-error', null);
+  } catch (e) { setError('search-error', e); }
+}
+
+// ---------------- Boot ----------------
+if (TOKEN) { document.getElementById('api-base').value = API_BASE; enterApp(); }
+</script>
+</body>
+</html>
