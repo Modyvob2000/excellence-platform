@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Internet access for API / PostgreSQL backend -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Network state -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
@@ -9,24 +15,32 @@
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.ExcellencePlatform"
-        android:usesCleartextTraffic="false">
+        android:theme="@style/Theme.Excellence"
+        android:usesCleartextTraffic="false"
+        android:supportsRtl="true">
 
+        <!-- Main application screen -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.ExcellencePlatform">
+            android:theme="@style/Theme.Excellence">
+
             <intent-filter>
+
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
+
             </intent-filter>
+
         </activity>
 
-        <!-- Background sync (offline-first) -->
+        <!-- Background synchronization -->
         <service
             android:name="androidx.work.impl.background.systemjob.SystemJobService"
             android:exported="false"
-            tools:node="merge"
-            xmlns:tools="http://schemas.android.com/tools" />
+            tools:node="merge" />
+
     </application>
+
 </manifest>
