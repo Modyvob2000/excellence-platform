@@ -45,11 +45,12 @@ jobs:
           sdkmanager "build-tools;34.0.0"
           sdkmanager "build-tools;35.0.0"
 
-      # 6) إعداد Gradle 8.7
+      # 6) إعداد Gradle 8.7 (مع تعطيل الكاش لتجنب أخطاء 400 من السيرفر)
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
+          cache-enabled: false
 
       # 7) التأكد من ملفات Android
       - name: Check Android project
