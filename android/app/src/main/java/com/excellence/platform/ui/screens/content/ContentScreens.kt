@@ -28,7 +28,7 @@ private sealed class ListState {
 }
 
 @HiltViewModel
-private class NodeListViewModel @Inject constructor(private val api: ContentApi) : ViewModel() {
+class NodeListViewModel @Inject constructor(private val api: ContentApi) : ViewModel() {
     private val _state = MutableStateFlow<ListState>(ListState.Loading)
     val state: StateFlow<ListState> = _state
 
