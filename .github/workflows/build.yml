@@ -25,34 +25,21 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # 3) Android SDK
+      # 3) Android SDK وتثبيت الحزم دفعة واحدة مع الموافقة على الرخص
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools'
+          packages: 'platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0'
+          accept-android-sdk-licenses: true
 
-      # 4) تثبيت تراخيص Android
-      - name: Accept Android licenses
-        run: |
-          yes | sdkmanager --licenses || true
-
-      # 5) تثبيت Android SDK 34 و35
-      - name: Install Android SDK packages
-        run: |
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-34"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;34.0.0"
-          sdkmanager "build-tools;35.0.0"
-
-      # 6) إعداد Gradle 8.7 (مع تعطيل الكاش لتجنب أخطاء السيرفر)
+      # 4) إعداد Gradle 8.7 (مع تعطيل الكاش لتجنب أخطاء السيرفر)
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: '8.7'
           cache-disabled: true
 
-      # 7) التأكد من ملفات Android
+      # 5) التأكد من ملفات Android
       - name: Check Android project
         working-directory: android
         run: |
@@ -67,13 +54,13 @@ jobs:
             -o -name "settings.gradle.kts" \) \
             -print
 
-      # 8) بناء APK Debug
+      # 6) بناء APK Debug
       - name: Build Debug APK
         working-directory: android
         run: |
           gradle assembleDebug --no-daemon --stacktrace
 
-      # 9) البحث عن APK
+      # 7) البحث عن APK
       - name: Find APK
         run: |
           echo "===== APK FILES ====="
@@ -82,11 +69,10 @@ jobs:
             -name "*.apk" \
             -print
 
-      # 10) رفع APK
+      # 8) رفع APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
-
