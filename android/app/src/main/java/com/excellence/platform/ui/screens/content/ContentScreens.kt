@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private sealed class ListState {
+sealed class ListState {
     data object Loading : ListState()
     data class Loaded(val items: List<NodeOut>) : ListState()
     data class Error(val message: String) : ListState()
