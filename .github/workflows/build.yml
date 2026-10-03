@@ -2,77 +2,45 @@ name: Build Android APK
 
 on:
   push:
-    branches:
-      - main
-
-  workflow_dispatch:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # يتيح لك تشغيل الـ Build يدوياً من تبويب Actions في قيت هب
 
 jobs:
   build:
-    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-
-      # 1) تحميل المشروع
-      - name: Checkout project
+      # 1. سحب كود المشروع
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2) Java 17
-      - name: Setup JDK 17
+      # 2. إعداد بيئة جافا (Java JDK 17 أو 21 حسب متطلبات مشروعك)
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
+          distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
-      # 3) Android SDK وتثبيت الحزم دفعة واحدة مع الموافقة على الرخص
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+      # 3. إعداد أندرويد SDK والموافقة التلقائية على التراخيص (حل المشكلة)
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 platforms;android-35 build-tools;34.0.0 build-tools;35.0.0'
           accept-android-sdk-licenses: true
 
-      # 4) إعداد Gradle 8.7 (مع تعطيل الكاش لتجنب أخطاء السيرفر)
-      - name: Setup Gradle 8.7
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
-          cache-disabled: true
+      # 4. منح صلاحيات التنفيذ لـ Gradle Wrapper
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
 
-      # 5) التأكد من ملفات Android
-      - name: Check Android project
-        working-directory: android
-        run: |
-          echo "===== Android Project ====="
-          ls -la
+      # 5. بناء نسخة الإصدار (Release APK) أو Debug حسب رغبتك
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
 
-          echo "===== Gradle Files ====="
-          find . -maxdepth 3 -type f \
-            \( -name "*.gradle" \
-            -o -name "*.gradle.kts" \
-            -o -name "settings.gradle" \
-            -o -name "settings.gradle.kts" \) \
-            -print
-
-      # 6) بناء APK Debug
-      - name: Build Debug APK
-        working-directory: android
-        run: |
-          gradle assembleDebug --no-daemon --stacktrace
-
-      # 7) البحث عن APK
-      - name: Find APK
-        run: |
-          echo "===== APK FILES ====="
-          find android/app/build/outputs \
-            -type f \
-            -name "*.apk" \
-            -print
-
-      # 8) رفع APK
-      - name: Upload APK
+      # 6. رفع ملف الـ APK الناتج كـ Artifact لتحميله بعد انتهاء الـ Build
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          name: app-release-apk
+          path: app/build/outputs/apk/release/*.apk
