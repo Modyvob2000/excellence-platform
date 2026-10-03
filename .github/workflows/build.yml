@@ -5,7 +5,7 @@ on:
     branches: [ "main", "master" ]
   pull_request:
     branches: [ "main", "master" ]
-  workflow_dispatch: # يتيح لك تشغيل الـ Build يدوياً من تبويب Actions في قيت هب
+  workflow_dispatch: # يتيح تشغيل الـ Build يدوياً من تبويب Actions
 
 jobs:
   build:
@@ -16,15 +16,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. إعداد بيئة جافا (Java JDK 17 أو 21 حسب متطلبات مشروعك)
+      # 2. إعداد بيئة جافا (محدث إلى v5 لحل التحذير)
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
 
-      # 3. إعداد أندرويد SDK والموافقة التلقائية على التراخيص (حل المشكلة)
+      # 3. إعداد أندرويد SDK والموافقة التلقائية على التراخيص
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -34,11 +34,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 5. بناء نسخة الإصدار (Release APK) أو Debug حسب رغبتك
+      # 5. بناء نسخة الإصدار (Release APK)
       - name: Build Release APK
         run: ./gradlew assembleRelease
 
-      # 6. رفع ملف الـ APK الناتج كـ Artifact لتحميله بعد انتهاء الـ Build
+      # 6. رفع ملف الـ APK الناتج كـ Artifact
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
